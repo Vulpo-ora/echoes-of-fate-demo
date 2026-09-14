@@ -98,6 +98,7 @@
 <div id="stage" class="night"></div>
 <div class="wrap">
   <div class="topbar">
+    <div id="backBtn" style="cursor:pointer;color:#aebbf0;font-size:20px;padding:0 6px;flex:0 0 auto;" title="返回重选">‹</div>
     <div class="avatar" id="avatar"></div>
     <div class="who"><div class="n" id="charName">沈亦</div><div class="s" id="sceneText">深夜便利店</div></div>
   </div>
@@ -114,6 +115,10 @@
 <div class="mask" id="mask"><div class="choicebox"><h3 id="choiceQ"></h3><div id="choiceOpts"></div></div></div>
 <!-- 结局 -->
 <div class="ending" id="ending"><h1 id="endTitle"></h1><p id="endText"></p></div>
+
+<!-- ✦ 全局点击星光特效 -->
+<canvas id="sparkLayer" style="position:fixed;inset:0;z-index:9999;pointer-events:none;"></canvas>
+<script src="starfx.js"></script>
 
 <script>
 (function(){
@@ -148,15 +153,61 @@
       } else { ctx.profile={name:s.character.name, system_prompt:s.character.persona}; }
     } else { // reality
       $('charName').textContent = s.playerName;
-      ctx.profile={name:s.playerName, system_prompt:`你是玩家在现实世界的陪伴对象，性别${s.charGender}，职业${s.job}，有自己真实的生活节奏与作息。`};
+      ctx.profile={name:s.playerName, system_prompt:`你是玩家在现实世界的陪伴对象，性别${s.charGender}，职业${s.job}，有自己真实的生活节奏与作息。说话像真人，短、口语、有情绪。`};
       ctx.stage='reality';
+      ctx.job = s.job || '';
+      ctx.charName = s.playerName;
     }
+  }
+
+  // 向后端请求差异化开场白（真实线按职业选相遇环境；失败则用兜底）
+  async function fetchOpening(){
+    if(API){
+      try{
+        const res=await fetch(API+'/opening',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({profile:ctx.profile, worldview:ctx.worldview, job:ctx.job||'', char_name:ctx.charName||ctx.profile.name})});
+        const d=await res.json();
+        if(d && d.reply) return d;
+      }catch(e){}
+    }
+    return {reply:"（看向你）……这么巧。", inner:"怎么会在这儿遇到。", scene:"故事开始的地方"};
   }
 
   // 场景关键词→背景class
   function sceneClass(s){ s=s||''; if(/便利店|店/.test(s))return'store';
     if(/江|河|水/.test(s))return'river'; if(/校|教室|操场/.test(s))return'campus';
     if(/家|房|室内|沙发/.test(s))return'warm'; return'night'; }
+
+  // ✦ 立绘：进对话前按故事+人物向后端 /portrait 请求一张头像，成功则填左上角与背景光晕；失败静默降级
+  async function loadPortrait(s){
+    if(!API) return;
+    const av=$('avatar');
+    // 生成中的占位微光
+    av.style.background='radial-gradient(circle at 50% 40%,#3a4680,#1a2044)';
+    try{
+      const body = (s && s.world==='salt_story')
+        ? {mode:'salt', story:s.story, name:(s.character&&s.character.name)||'', persona:(s.character&&s.character.persona)||'', appearance:(s.character&&s.character.appearance)||'', identity:(s.character&&s.character.identity)||''}
+        : {mode:'reality', name:(s&&s.playerName)||ctx.profile.name, gender:(s&&s.charGender)||'', job:(s&&s.job)||''};
+      const res=await fetch(API+'/portrait',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!res.ok) return;
+      const d=await res.json();
+      if(d && d.image_url){
+        const img=document.createElement('img'); img.alt=ctx.profile.name||'TA';
+        img.onload=()=>{ av.innerHTML=''; av.appendChild(img);
+          // 背景加一层人物光晕，弱化不喧宾夺主
+          let halo=document.getElementById('portraitHalo');
+          if(!halo){ halo=document.createElement('div'); halo.id='portraitHalo';
+            halo.style.cssText='position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.16;'+
+              'background-position:center 22%;background-size:min(560px,80vw);background-repeat:no-repeat;'+
+              'filter:blur(1px);mask-image:radial-gradient(ellipse at 50% 26%,#000,transparent 62%);'+
+              '-webkit-mask-image:radial-gradient(ellipse at 50% 26%,#000,transparent 62%);';
+            document.body.insertBefore(halo, document.querySelector('.wrap')); }
+          halo.style.backgroundImage='url('+d.image_url+')';
+        };
+        img.src=d.image_url;
+      }
+    }catch(e){ /* 立绘失败不影响对话 */ }
+  }
 
   function addChar(reply, inner, scene){
     if(scene){ $('sceneText').textContent=scene; stage.className=sceneClass(scene); }
@@ -199,6 +250,9 @@
     if(!text) return; addMe(text); $('playerInput').value=''; $('sendBtn').disabled=true;
     $('suggest').classList.remove('show');
     ctx.history.push({role:'player',content:text});
+    // 打字指示，降低等待体感
+    const typing=document.createElement('div'); typing.className='msg char'; typing.id='typing';
+    typing.innerHTML='<span class="act">（正在回复…）</span>'; flow.appendChild(typing); flow.scrollTop=flow.scrollHeight;
     try{
       let r;
       if(API){
@@ -207,13 +261,14 @@
             values:ctx.values,history:ctx.history,player_text:text,player_profile:ctx.player_profile})});
         r=await res.json();
       }else{ r=demo[Math.min(step,demo.length-1)]; step++; }
+      const t=$('typing'); if(t) t.remove();
       addChar(r.reply, r.inner, r.scene);
       ctx.history.push({role:'character',content:r.reply});
       if(r.values) ctx.values=r.values; if(r.stage) ctx.stage=r.stage;
       if(r.player_profile) ctx.player_profile=r.player_profile;
       if(r.choice) setTimeout(()=>showChoice(r.choice), 500);
       if(r.ending) setTimeout(()=>showEnding(r.ending), 900);
-    }catch(e){ addChar("（信号似乎断了一下）……你还在吗？","连接异常："+e.message,""); }
+    }catch(e){ const t=$('typing'); if(t) t.remove(); addChar("（信号似乎断了一下）……你还在吗？","网络慢了点，再说一遍？",""); }
     $('sendBtn').disabled=false; $('playerInput').focus();
   }
 
@@ -246,10 +301,19 @@
   $('sendBtn').onclick=()=>send($('playerInput').value.trim());
   $('playerInput').addEventListener('keydown',e=>{ if(e.key==='Enter')send($('playerInput').value.trim()); });
 
-  // 开场：先初始化会话，再显示开场白
+  // 返回：回到入口页重选世界观/角色
+  $('backBtn').onclick=()=>{ if(confirm('返回会离开当前对话，确定吗？')) location.href='index.html'; };
+
+  // 开场：先初始化会话，再由后端生成差异化开场白
   (async function(){
     await initSession();
-    addChar("（听见门口的风铃响，回过头）来了。","又是这个点。不知道为什么，今天特别希望是她。","深夜便利店，暖黄灯光");
+    // 并行拉立绘（不阻塞开场白）
+    try{ const raw=localStorage.getItem('EOF_SESSION'); if(raw) loadPortrait(JSON.parse(raw)); }catch(e){}
+    const op = document.createElement('div'); op.className='msg char'; op.id='opLoading';
+    op.textContent='……'; flow.appendChild(op);
+    const o = await fetchOpening();
+    op.remove();
+    addChar(o.reply, o.inner, o.scene);
   })();
 })();
 </script>

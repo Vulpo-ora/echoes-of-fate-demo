@@ -146,14 +146,16 @@
   }
   draw();
 
-  // ===== 进入游戏 =====
+  // ===== 进入游戏：星轨动画收束 → 衔接主页（世界观三选项）=====
   const intro = document.getElementById('intro');
   const game  = document.getElementById('game');
   let entered = false;
   function enter(){
     if(entered) return; entered = true;
     intro.classList.add('hide');
+    // 星轨收束后淡出，跳转到主页（选世界观 / 盐选 / 现实 / 返回）
     setTimeout(()=>{ game.classList.add('show'); }, 700);
+    setTimeout(()=>{ location.href='index.html'; }, 1500);
   }
   document.getElementById('enterBtn').onclick = enter;
   document.getElementById('skipBtn').onclick  = enter;
@@ -161,5 +163,9 @@
   setTimeout(enter, 6500);
 })();
 </script>
+
+<!-- ✦ 全局点击星光特效 -->
+<canvas id="sparkLayer" style="position:fixed;inset:0;z-index:9999;pointer-events:none;"></canvas>
+<script src="starfx.js"></script>
 </body>
 </html>
