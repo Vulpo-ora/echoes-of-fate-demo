@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>命定·回响 · 对话</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;font-family:"PingFang SC","Microsoft YaHei",sans-serif;overflow:hidden;}
+  /* 场景氛围背景（CSS，随 scene 切换 class） */
+  #stage{position:fixed;inset:0;transition:background 1.2s ease;
+    background:radial-gradient(ellipse at 50% 30%,#1a2140 0%,#0a0e20 60%,#060810 100%);}
+  #stage.night{background:radial-gradient(ellipse at 50% 25%,#20264a,#0c1024 60%,#070a16);}
+  #stage.store{background:linear-gradient(180deg,#3a3320,#1a1810 70%,#0d0c08);}
+  #stage.river{background:linear-gradient(180deg,#12233a,#0a1626 70%,#060d18);}
+  #stage.campus{background:linear-gradient(180deg,#3a2a1e,#1e160f 70%,#0d0a07);}
+  #stage.warm{background:radial-gradient(ellipse at 50% 30%,#332236,#1a1420 60%,#0d0a12);}
+
+  .wrap{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;max-width:720px;margin:0 auto;}
+  /* 顶栏：陪伴对象名 + 场景 */
+  .topbar{padding:14px 18px;color:#dfe6ff;display:flex;align-items:center;gap:12px;
+    background:linear-gradient(180deg,rgba(10,14,32,.7),transparent);backdrop-filter:blur(4px);}
+  .avatar{width:40px;height:40px;border-radius:50%;background:#2a3358;overflow:hidden;flex:0 0 auto;
+    border:1px solid rgba(160,190,255,.4);}
+  .avatar img{width:100%;height:100%;object-fit:cover;}
+  .who .n{font-size:16px;letter-spacing:.08em;}
+  .who .s{font-size:12px;color:#8fa0d0;margin-top:2px;}
+
+  /* 对话流 */
+  .flow{flex:1;overflow-y:auto;padding:10px 16px 20px;display:flex;flex-direction:column;gap:14px;}
+  .flow::-webkit-scrollbar{width:5px;}
+  .flow::-webkit-scrollbar-thumb{background:rgba(150,180,255,.3);border-radius:3px;}
+
+  .msg{max-width:82%;padding:11px 15px;border-radius:16px;line-height:1.75;font-size:15px;
+    animation:pop .35s ease;}
+  @keyframes pop{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .char{align-self:flex-start;background:rgba(60,70,120,.55);color:#eef2ff;border-top-left-radius:4px;
+    backdrop-filter:blur(6px);}
+  .char .act{color:#b9c6f5;font-style:italic;}
+  .me{align-self:flex-end;background:rgba(150,170,255,.85);color:#0c1024;border-top-right-radius:4px;}
+
+  /* 内心旁白框（```代码块风格） */
+  .inner{align-self:flex-start;max-width:88%;margin-top:-4px;
+    background:rgba(8,10,22,.85);border:1px solid rgba(150,180,255,.25);border-radius:10px;
+    padding:10px 14px;color:#aeb9e6;font-size:13.5px;line-height:1.7;font-family:"Cascadia Code",Consolas,monospace;
+    position:relative;}
+  .inner::before{content:"内心 · OS";position:absolute;top:-9px;left:12px;font-size:11px;
+    background:#0c1024;padding:0 8px;color:#7c88b8;letter-spacing:.1em;}
+
+  /* 输入区 */
+  .inputbar{padding:12px 16px 18px;display:flex;gap:10px;
+    background:linear-gradient(0deg,rgba(10,14,32,.8),transparent);}
+  .inputbar input{flex:1;padding:12px 16px;border-radius:24px;border:1px solid rgba(160,190,255,.3);
+    background:rgba(20,26,50,.8);color:#eef2ff;font-size:15px;outline:none;}
+  .inputbar input:focus{border-color:rgba(160,190,255,.7);}
+  .inputbar button{padding:0 22px;border:none;border-radius:24px;background:#8fa8ff;color:#0c1024;
+    font-size:15px;font-weight:600;cursor:pointer;transition:.2s;}
+  .inputbar button:hover{background:#a9bcff;}
+  .inputbar button:disabled{opacity:.5;cursor:not-allowed;}
+  .helpBtn{background:transparent!important;border:1px solid rgba(160,190,255,.4)!important;
+    color:#aebbf0!important;font-weight:400!important;padding:0 14px!important;font-size:13px!important;}
+  .helpBtn:hover{background:rgba(140,170,255,.2)!important;}
+
+  /* AI推荐回答卡片 */
+  .suggest{position:absolute;left:16px;right:16px;bottom:74px;z-index:15;display:none;flex-direction:column;gap:8px;}
+  .suggest.show{display:flex;animation:pop .3s ease;}
+  .sTip{font-size:12px;color:#8fa0d0;letter-spacing:.08em;padding-left:4px;}
+  .sCard{background:rgba(30,38,68,.95);border:1px solid rgba(160,190,255,.35);border-radius:12px;
+    padding:11px 14px;color:#e6ecff;font-size:14px;line-height:1.6;display:flex;gap:10px;align-items:center;
+    backdrop-filter:blur(6px);}
+  .sCard .txt{flex:1;cursor:pointer;}
+  .sCard .txt:hover{color:#fff;}
+  .sCard .edit{font-size:12px;color:#8fa8ff;cursor:pointer;white-space:nowrap;padding:3px 8px;
+    border:1px solid rgba(140,170,255,.4);border-radius:8px;}
+  .sCard .edit:hover{background:rgba(140,170,255,.2);}
+
+  /* 选择节点弹窗 */
+  .mask{position:fixed;inset:0;z-index:30;background:rgba(4,6,16,.72);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;padding:24px;}
+  .mask.show{display:flex;}
+  .choicebox{background:linear-gradient(160deg,#1a2044,#12162e);border:1px solid rgba(160,190,255,.4);
+    border-radius:18px;padding:26px 24px;max-width:440px;width:100%;box-shadow:0 0 40px rgba(120,150,255,.3);}
+  .choicebox h3{color:#eef2ff;font-size:17px;margin-bottom:18px;line-height:1.6;letter-spacing:.04em;}
+  .choicebox button{display:block;width:100%;margin-bottom:11px;padding:13px 16px;text-align:left;
+    border:1px solid rgba(160,190,255,.35);border-radius:12px;background:rgba(60,70,120,.35);
+    color:#e6ecff;font-size:14.5px;cursor:pointer;transition:.2s;}
+  .choicebox button:hover{background:rgba(140,170,255,.35);transform:translateX(3px);}
+
+  /* 结局层 */
+  .ending{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 40%,#1a1436,#0a0818 70%);flex-direction:column;text-align:center;padding:30px;}
+  .ending.show{display:flex;}
+  .ending h1{color:#fff;font-size:40px;letter-spacing:.2em;margin-bottom:16px;text-shadow:0 0 30px rgba(160,190,255,.7);}
+  .ending p{color:#b9c6f5;font-size:15px;line-height:2;max-width:520px;}
+</style>
+</head>
+<body>
+<div id="stage" class="night"></div>
+<div class="wrap">
+  <div class="topbar">
+    <div class="avatar" id="avatar"></div>
+    <div class="who"><div class="n" id="charName">沈亦</div><div class="s" id="sceneText">深夜便利店</div></div>
+  </div>
+  <div class="flow" id="flow"></div>
+  <div class="suggest" id="suggest"></div>
+  <div class="inputbar">
+    <input id="playerInput" placeholder="说点什么……" autocomplete="off">
+    <button class="helpBtn" id="helpBtn">💡 帮我想</button>
+    <button id="sendBtn">发送</button>
+  </div>
+</div>
+
+<!-- 选择节点弹窗 -->
+<div class="mask" id="mask"><div class="choicebox"><h3 id="choiceQ"></h3><div id="choiceOpts"></div></div></div>
+<!-- 结局 -->
+<div class="ending" id="ending"><h1 id="endTitle"></h1><p id="endText"></p></div>
+
+<script>
+(function(){
+  const API = localStorage.getItem('EOF_API') || 'https://echoes-of-fate-api-313534-9-1487534135.sh.run.tcloudbase.com'; // 填线上地址走真实后端；清除 localStorage 可回退离线演示
+  const $ = id => document.getElementById(id);
+  const flow=$('flow'), stage=$('stage');
+  let lastCharLine = "";
+
+  // 会话状态（从入口页 EOF_SESSION 初始化；无则用默认盐选演示）
+  let ctx = {
+    profile:{name:"沈亦", system_prompt:"你是《星河回响》的程序员沈亦…"},
+    worldview:"salt_story", stage:"encounter",
+    values:{friendship:5,love:5,fate:8,regret:0}, history:[], player_profile:{}
+  };
+
+  // 解析入口页传入的会话
+  async function initSession(){
+    const raw = localStorage.getItem('EOF_SESSION');
+    if(!raw) return; // 无 → 直接用默认演示
+    let s; try{ s=JSON.parse(raw); }catch(e){ return; }
+    ctx.worldview = s.world;
+    if(s.world==='salt_story'){
+      $('charName').textContent = s.character.name;
+      if(API){
+        try{
+          const res=await fetch(API+'/salt_persona',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({story_title:s.story,synopsis:s.synopsis,character:s.character,
+              player_name:s.playerName, player_role:s.playerRole})});
+          const d=await res.json();
+          ctx.profile=d.profile; ctx.values=d.values; ctx.stage=d.stage;
+        }catch(e){ ctx.profile={name:s.character.name, system_prompt:s.character.persona}; }
+      } else { ctx.profile={name:s.character.name, system_prompt:s.character.persona}; }
+    } else { // reality
+      $('charName').textContent = s.playerName;
+      ctx.profile={name:s.playerName, system_prompt:`你是玩家在现实世界的陪伴对象，性别${s.charGender}，职业${s.job}，有自己真实的生活节奏与作息。`};
+      ctx.stage='reality';
+    }
+  }
+
+  // 场景关键词→背景class
+  function sceneClass(s){ s=s||''; if(/便利店|店/.test(s))return'store';
+    if(/江|河|水/.test(s))return'river'; if(/校|教室|操场/.test(s))return'campus';
+    if(/家|房|室内|沙发/.test(s))return'warm'; return'night'; }
+
+  function addChar(reply, inner, scene){
+    if(scene){ $('sceneText').textContent=scene; stage.className=sceneClass(scene); }
+    lastCharLine = reply;
+    const m=document.createElement('div'); m.className='msg char';
+    // (…) 动作着色
+    m.innerHTML = reply.replace(/（[^）]*）/g,'<span class="act">$&</span>');
+    flow.appendChild(m);
+    if(inner){ const i=document.createElement('div'); i.className='inner'; i.textContent=inner; flow.appendChild(i); }
+    flow.scrollTop=flow.scrollHeight;
+  }
+  function addMe(t){ const m=document.createElement('div'); m.className='msg me'; m.textContent=t; flow.appendChild(m); flow.scrollTop=flow.scrollHeight; }
+
+  function showChoice(c){
+    $('choiceQ').textContent=c.question;
+    const box=$('choiceOpts'); box.innerHTML='';
+    c.options.forEach(opt=>{ const b=document.createElement('button'); b.textContent=opt;
+      b.onclick=()=>{ $('mask').classList.remove('show'); send(opt); }; box.appendChild(b); });
+    $('mask').classList.add('show');
+  }
+  function showEnding(e){
+    const map={"救赎结局":"跨越了所有波折，你们最终走到了一起。",
+      "幸福结局":"平稳而甜蜜，日子被过成了你们想要的样子。",
+      "遗憾结局":"最终错过，但你们曾真实地照亮过彼此。"};
+    $('endTitle').textContent=e; $('endText').textContent=map[e]||"故事，在这里落下一个回响。";
+    $('ending').classList.add('show');
+  }
+
+  // 离线演示脚本（无后端时按顺序回放，验证完整交互）
+  const demo=[
+    {reply:"（抬眼，把便利店的灯往你这边推了推）……这么晚还没睡？",inner:"她来的第三个深夜了。我居然开始期待。",scene:"深夜便利店，暖黄灯光",choice:null},
+    {reply:"（默默递来一瓶温热的牛奶）先喝点。有些话，慢慢说也不迟。",inner:"我记得她说过胃不好。这种小事，我总是忘不掉。",scene:"深夜便利店",choice:{question:"要不要坐下来，陪他聊会儿？",options:["坐下来，就聊聊今天","说句晚安就走","反问他为什么也没睡"]}},
+    {reply:"（笑了一下，眼神很轻）你留下来，我就不算一个人守店了。",inner:"原来有人在的深夜，是这种感觉。",scene:"深夜便利店",choice:null},
+    {reply:"（顿了顿，声音低下去）其实……我每天等的那个人，是你。",inner:"说出来了。心跳得厉害，但我不后悔。",scene:"天台，星空",choice:{question:"面对他的心意，你——",options:["“我也是。”","（主动握住他的手）","“我们……能一直这样吗？”"]}},
+    {reply:"（把耳机分你一半，并肩看着城市的灯）以后每个深夜，我都在。",inner:"这一次，我不会再让她走进空荡荡的夜里了。",scene:"天台，清晨微光",choice:null,ending:"救赎结局"}
+  ];
+  let step=0;
+
+  async function send(text){
+    if(!text) return; addMe(text); $('playerInput').value=''; $('sendBtn').disabled=true;
+    $('suggest').classList.remove('show');
+    ctx.history.push({role:'player',content:text});
+    try{
+      let r;
+      if(API){
+        const res=await fetch(API+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({profile:ctx.profile,worldview:ctx.worldview,stage:ctx.stage,
+            values:ctx.values,history:ctx.history,player_text:text,player_profile:ctx.player_profile})});
+        r=await res.json();
+      }else{ r=demo[Math.min(step,demo.length-1)]; step++; }
+      addChar(r.reply, r.inner, r.scene);
+      ctx.history.push({role:'character',content:r.reply});
+      if(r.values) ctx.values=r.values; if(r.stage) ctx.stage=r.stage;
+      if(r.player_profile) ctx.player_profile=r.player_profile;
+      if(r.choice) setTimeout(()=>showChoice(r.choice), 500);
+      if(r.ending) setTimeout(()=>showEnding(r.ending), 900);
+    }catch(e){ addChar("（信号似乎断了一下）……你还在吗？","连接异常："+e.message,""); }
+    $('sendBtn').disabled=false; $('playerInput').focus();
+  }
+
+  // 💡 AI 推荐可编辑回答（3条）
+  async function suggest(){
+    const box=$('suggest'); box.innerHTML='<div class="sTip">💡 不知道怎么答？点一条直接发，或"改"一下再发</div>';
+    box.classList.add('show'); $('helpBtn').disabled=true;
+    let list;
+    try{
+      if(API){
+        const res=await fetch(API+'/suggest',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({character_last:lastCharLine,scene:$('sceneText').textContent,stage:ctx.stage,player_name:ctx.profile.name})});
+        list=(await res.json()).suggestions;
+      }else{ // 离线兜底三风格
+        list=["其实……有你在，我就没那么怕深夜了。","你今天话怎么突然变多了？（偷笑）","你说的‘等的人’，到底是谁呀？"];
+      }
+    }catch(e){ list=["嗯……我也说不清，但想多待一会儿。","你先说，我听着。","为什么突然问这个？"]; }
+    list.forEach(t=>{
+      const c=document.createElement('div'); c.className='sCard';
+      const tx=document.createElement('div'); tx.className='txt'; tx.textContent=t;
+      tx.onclick=()=>{ box.classList.remove('show'); send(t); };           // 点文字=直接发
+      const ed=document.createElement('div'); ed.className='edit'; ed.textContent='改';
+      ed.onclick=()=>{ $('playerInput').value=t; box.classList.remove('show'); $('playerInput').focus(); }; // 点改=填入编辑
+      c.appendChild(tx); c.appendChild(ed); box.appendChild(c);
+    });
+    $('helpBtn').disabled=false;
+  }
+  $('helpBtn').onclick=suggest;
+
+  $('sendBtn').onclick=()=>send($('playerInput').value.trim());
+  $('playerInput').addEventListener('keydown',e=>{ if(e.key==='Enter')send($('playerInput').value.trim()); });
+
+  // 开场：先初始化会话，再显示开场白
+  (async function(){
+    await initSession();
+    addChar("（听见门口的风铃响，回过头）来了。","又是这个点。不知道为什么，今天特别希望是她。","深夜便利店，暖黄灯光");
+  })();
+})();
+</script>
+</body>
+</html>

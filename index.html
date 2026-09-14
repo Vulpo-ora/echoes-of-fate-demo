@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>命定·回响 Echoes of Fate</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05060f;
+    font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#e6ecff;}
+  .screen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;
+    padding:28px;transition:opacity .8s ease;opacity:0;}
+  .screen.on{display:flex;opacity:1;}
+  .bg{position:fixed;inset:0;z-index:-1;
+    background:radial-gradient(ellipse at 50% 35%,#141d3f,#0a0e20 60%,#05060f);}
+
+  h1{font-size:clamp(30px,7vw,60px);letter-spacing:.16em;text-shadow:0 0 24px rgba(150,190,255,.7);}
+  .en{color:#9fb6ff;letter-spacing:.4em;margin-top:10px;font-size:14px;}
+  .sub{color:#aeb9e6;margin:22px 0 30px;line-height:2;text-align:center;font-size:14px;}
+
+  .card{background:rgba(30,38,68,.55);border:1px solid rgba(160,190,255,.35);border-radius:18px;
+    padding:24px 26px;margin:10px;max-width:340px;cursor:pointer;transition:.25s;backdrop-filter:blur(6px);text-align:center;}
+  .card:hover{background:rgba(90,110,190,.4);transform:translateY(-4px);box-shadow:0 8px 30px rgba(120,150,255,.3);}
+  .card .ic{font-size:34px;}
+  .card h3{margin:12px 0 8px;font-size:20px;letter-spacing:.08em;}
+  .card p{color:#a8b3dc;font-size:13px;line-height:1.7;}
+  .row{display:flex;flex-wrap:wrap;justify-content:center;}
+
+  .btn{padding:13px 40px;border:1px solid rgba(160,190,255,.6);border-radius:30px;
+    background:rgba(120,150,255,.12);color:#e6ecff;font-size:15px;letter-spacing:.2em;cursor:pointer;transition:.25s;}
+  .btn:hover{background:rgba(140,170,255,.3);box-shadow:0 0 20px rgba(140,170,255,.5);}
+  .btn:disabled{opacity:.5;cursor:wait;}
+
+  input,textarea,select{width:100%;max-width:420px;padding:12px 16px;margin:8px 0;border-radius:12px;
+    border:1px solid rgba(160,190,255,.35);background:rgba(20,26,50,.8);color:#eef2ff;font-size:15px;outline:none;}
+  textarea{min-height:90px;resize:vertical;}
+  label{align-self:flex-start;color:#9fb6ff;font-size:13px;margin-top:10px;letter-spacing:.05em;max-width:420px;width:100%;}
+  .seg{display:flex;gap:10px;width:100%;max-width:420px;}
+  .seg button{flex:1;padding:11px;border-radius:10px;border:1px solid rgba(160,190,255,.35);
+    background:rgba(30,38,68,.6);color:#dfe6ff;cursor:pointer;transition:.2s;}
+  .seg button.sel{background:rgba(140,170,255,.5);border-color:#a9bcff;}
+
+  .charList{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:640px;}
+  .charItem{background:rgba(30,38,68,.6);border:1px solid rgba(160,190,255,.3);border-radius:14px;
+    padding:16px 18px;max-width:280px;cursor:pointer;transition:.2s;text-align:left;}
+  .charItem:hover{background:rgba(90,110,190,.4);transform:translateY(-3px);}
+  .charItem .cn{font-size:17px;color:#fff;margin-bottom:4px;}
+  .charItem .ci{font-size:12px;color:#8fa8ff;margin-bottom:8px;}
+  .charItem .cp{font-size:13px;color:#a8b3dc;line-height:1.6;}
+  .loading{color:#9fb6ff;letter-spacing:.15em;animation:blink 1.2s infinite;}
+  @keyframes blink{50%{opacity:.4;}}
+  .back{position:fixed;top:20px;left:20px;color:rgba(180,195,255,.6);cursor:pointer;font-size:14px;z-index:5;}
+  .back:hover{color:#fff;}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<!-- S0 开场（动画简化版，衔接已有 start_screen 动效精神） -->
+<section class="screen on" id="s0">
+  <h1>命定 · 回响</h1><div class="en">ECHOES OF FATE</div>
+  <div class="sub">有些故事，只有经历过才懂。<br>有些宿命，只有说出来才存在。</div>
+  <button class="btn" onclick="go('s1')">进 入 星 轨</button>
+</section>
+
+<!-- S1 选世界观 -->
+<section class="screen" id="s1">
+  <div class="sub">你想走进哪一个世界？</div>
+  <div class="row">
+    <div class="card" onclick="pickWorld('salt_story')">
+      <div class="ic">📖</div><h3>盐选故事</h3>
+      <p>走进一个故事，成为故事里的人。<br>选一个人物陪你，但走向由你决定，与原结局无关。</p>
+    </div>
+    <div class="card" onclick="pickWorld('reality')">
+      <div class="ic">🌆</div><h3>现实世界</h3>
+      <p>没有剧本，只有真实的情感互动。<br>在现代都市里，与 TA 自由相处。</p>
+    </div>
+  </div>
+</section>
+
+<!-- S2-盐选：填知乎盐选故事名 -->
+<section class="screen" id="s2salt">
+  <div class="back" onclick="go('s1')">‹ 返回</div>
+  <div class="sub">输入一个知乎盐选故事的名字<br><span style="font-size:12px;color:#8fa0d0">AI 会去知乎检索真实内容并确认，再带你走进它</span></div>
+  <label>盐选故事名（可附一句剧情，帮助更准确确认）</label>
+  <input id="storyInput" placeholder="例：错睡替身 / 深夜便利店留灯的人 / 十年暗恋的邮件">
+  <button class="btn" style="margin-top:18px" onclick="analyzeStory()">🔍 让 AI 去知乎确认这个故事 →</button>
+</section>
+
+<!-- S3-盐选：选性别+起名 -->
+<section class="screen" id="s3salt">
+  <div class="back" onclick="go('s2salt')">‹ 返回</div>
+  <div class="sub">在走进故事之前——</div>
+  <label>你的性别</label>
+  <div class="seg" id="segGenderSalt">
+    <button onclick="pick('salt_pg','female',this)">女</button>
+    <button onclick="pick('salt_pg','male',this)">男</button>
+  </div>
+  <label>给 TA 起个名字（会贯穿整个故事）</label>
+  <input id="saltName" placeholder="请输入 TA 的名字">
+  <button class="btn" style="margin-top:20px" onclick="toPickChar()">下一步 →</button>
+</section>
+
+<!-- S4-盐选：AI分析中/选人物 -->
+<section class="screen" id="s4salt">
+  <div class="back" onclick="go('s3salt')">‹ 返回</div>
+  <div id="analyzeArea"><div class="loading">✦ AI 正在分析故事，梳理人物与剧情……</div></div>
+</section>
+
+<!-- S2-真实：问卷建人设 -->
+<section class="screen" id="s2real">
+  <div class="back" onclick="go('s1')">‹ 返回</div>
+  <div class="sub">建立你的专属陪伴对象<br><span style="font-size:12px;color:#8fa0d0">现代都市「银河」·《星河回响》世界观 · 与现实同频</span></div>
+  <label>你的性别</label>
+  <div class="seg"><button onclick="pick('r_pg','female',this)">女</button><button onclick="pick('r_pg','male',this)">男</button></div>
+  <label>TA 的性别</label>
+  <div class="seg"><button onclick="pick('r_cg','male',this)">男</button><button onclick="pick('r_cg','female',this)">女</button></div>
+  <label>TA 的职业</label>
+  <input id="rJob" placeholder="例：独立开发者 / 建筑师 / 学生">
+  <label>给 TA 起个名字</label>
+  <input id="rName" placeholder="请输入 TA 的名字">
+  <button class="btn" style="margin-top:20px" onclick="startReal()">开始相遇 →</button>
+</section>
+
+<script>
+const API = localStorage.getItem('EOF_API') || 'https://echoes-of-fate-api-313534-9-1487534135.sh.run.tcloudbase.com';  // 留空则走离线演示；填线上地址走真实后端
+let S = { world:'', story:'', salt_pg:'', r_pg:'', r_cg:'', analysis:null };
+
+function go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on'); }
+function pick(key,val,btn){ S[key]=val; const seg=btn.parentNode;
+  seg.querySelectorAll('button').forEach(b=>b.classList.remove('sel')); btn.classList.add('sel'); }
+function pickWorld(w){ S.world=w; go(w==='salt_story'?'s2salt':'s2real'); }
+function useStory(t){ S.story=t; go('s3salt'); }
+
+function analyzeStory(){ const t=document.getElementById('storyInput').value.trim();
+  if(t) S.story=t; if(!S.story){ alert('先选一个故事或写点什么'); return; } go('s3salt'); }
+
+async function toPickChar(){
+  const name=document.getElementById('saltName').value.trim();
+  if(!S.salt_pg){ alert('先选你的性别'); return; }
+  if(!name){ alert('给 TA 起个名字'); return; }
+  S.saltName=name; go('s4salt');
+  const area=document.getElementById('analyzeArea');
+  area.innerHTML='<div class="loading">✦ AI 正在分析故事，梳理人物与剧情……</div>';
+  let data;
+  try{
+    if(API){ const res=await fetch(API+'/analyze_story',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({story:S.story})}); data=await res.json(); }
+    else { data=DEMO_ANALYSIS; await new Promise(r=>setTimeout(r,1400)); }
+  }catch(e){ data=DEMO_ANALYSIS; }
+  S.analysis=data;
+  renderChars(data);
+}
+
+// 第一步：确认故事 + 选"我代入的角色"
+function renderChars(data){
+  const area=document.getElementById('analyzeArea');
+  const conf = data.confirmed ? '✅ 已在知乎确认' : '✦ 基于主题构建';
+  let src='';
+  if((data.zhihu_sources||[]).length){
+    src='<div class="sub" style="font-size:12px;color:#7c88b8">知乎来源：'+
+      data.zhihu_sources.slice(0,3).map(s=>`《${s.title}》`).join('、')+'</div>';
+  }
+  let html=`<div class="sub"><b>《${data.title||'故事'}》</b> <span style="font-size:12px;color:#8fa8ff">${conf}</span><br>${data.synopsis||''}</div>${src}`;
+  html+='<div class="sub" style="margin-top:0">你想代入故事里的哪个角色？</div><div class="charList">';
+  (data.playable_roles||[]).forEach((c,i)=>{
+    html+=`<div class="charItem" onclick="choosePlayerRole(${i})">
+      <div class="cn">${c.name}</div><div class="ci">${c.identity||''}</div>
+      <div class="cp">${c.desc||''}</div></div>`;
+  });
+  html+='</div>'; area.innerHTML=html;
+}
+
+// 第二步：选"陪伴对象角色"
+function choosePlayerRole(i){
+  S.playerRole = S.analysis.playable_roles[i];
+  const area=document.getElementById('analyzeArea');
+  let html=`<div class="sub">你代入了 <b>${S.playerRole.name}</b>。<br>那么，谁来陪你走完这个故事？</div><div class="charList">`;
+  (S.analysis.companion_roles||[]).forEach((c,i)=>{
+    html+=`<div class="charItem" onclick="chooseCompanion(${i})">
+      <div class="cn">${c.name}</div><div class="ci">${c.identity||''}</div>
+      <div class="cp">${c.persona||''}</div></div>`;
+  });
+  html+='</div>'; area.innerHTML=html;
+}
+
+// 确认陪伴对象 → 进入对话
+function chooseCompanion(i){
+  const c=S.analysis.companion_roles[i];
+  const payload={ world:'salt_story', story:S.analysis.title, synopsis:S.analysis.synopsis,
+    character:c, playerRole:S.playerRole, playerName:S.saltName, playerGender:S.salt_pg };
+  localStorage.setItem('EOF_SESSION', JSON.stringify(payload));
+  location.href='chat.html';
+}
+
+function startReal(){
+  const job=document.getElementById('rJob').value.trim();
+  const name=document.getElementById('rName').value.trim();
+  if(!S.r_pg||!S.r_cg){ alert('先选性别'); return; }
+  if(!name){ alert('给 TA 起个名字'); return; }
+  const payload={ world:'reality', playerGender:S.r_pg, charGender:S.r_cg, job:job||'自由职业', playerName:name };
+  localStorage.setItem('EOF_SESSION', JSON.stringify(payload));
+  location.href='chat.html';
+}
+
+// 离线演示用分析结果（无后端时，模拟"知乎确认+双角色代入"结构）
+const DEMO_ANALYSIS = {
+  title:"错睡替身", confirmed:true,
+  synopsis:"暗恋十年的女孩在慈善晚宴阴差阳错睡错了人，一场荒唐后牵出一段宿命纠缠。",
+  zhihu_sources:[{title:"有没有纯甜甜到爆的短篇小说",author:"布丁加盐",url:""}],
+  playable_roles:[
+    {name:"姜阮",identity:"暗恋十年的普通女孩",desc:"你阴差阳错卷入豪门兄弟的漩涡，心跳与慌乱并存"},
+    {name:"旁观视角",identity:"故事记录者",desc:"以第三视角见证这段荒唐又甜的宿命"}
+  ],
+  companion_roles:[
+    {name:"孟余靖",identity:"孟氏集团少爷",persona:"清冷矜贵、护短、嘴上不饶人心里全是你",appearance:"约185cm，西装挺括，侧脸在水晶灯下好看得不真实"},
+    {name:"孟余舟",identity:"孟余靖的哥哥",persona:"沉稳温和、把心事藏得很深",appearance:"温润儒雅，浅色衬衫，眼神克制"}
+  ],
+  plot_beats:["慈善晚宴的意外","第二天的错愕","提亲的震惊","真相与抉择"],
+  choice_hints:["是否坦白","如何面对提亲","留下还是逃走"]
+};
+</script>
+</body>
+</html>
